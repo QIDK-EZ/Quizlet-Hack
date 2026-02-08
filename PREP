@@ -1,0 +1,86 @@
+javascript:(async function(){
+  let cards = [];
+  
+  function getCurrentCard() {
+    const allText = Array.from(document.querySelectorAll('.TermText, .FormattedText, .notranslate'))
+      .filter(el => el.offsetParent && el.textContent.trim())
+      .map(el => el.textContent.trim());
+    
+    if (allText.length < 2) return null;
+    
+    let term = allText[0].substring(0, 30);
+    let def = allText[1].substring(0, 30);
+    
+    return { term, def };
+  }
+  
+  function showButton() {
+    const btn = document.createElement('button');
+    btn.textContent = `Copy ${cards.length} Cards`;
+    btn.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 99999;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    `;
+    
+    btn.onclick = () => {
+      let output = "[\n";
+      cards.forEach((c, i) => {
+        output += `  ["${c[0]}", "${c[1]}"]${i < cards.length - 1 ? ',' : ''}\n`;
+      });
+      output += "]";
+      
+      navigator.clipboard.writeText(output).then(() => {
+        btn.textContent = '✓ Copied!';
+        btn.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
+        setTimeout(() => btn.remove(), 2000);
+      });
+    };
+    
+    document.body.appendChild(btn);
+  }
+  
+  async function collect() {
+    let prev = '';
+    
+    while (true) {
+      const card = getCurrentCard();
+      if (!card || card.term === prev) break;
+      
+      if (!cards.some(c => c[0] === card.term && c[1] === card.def)) {
+        cards.push([card.term, card.def]);
+      }
+      
+      prev = card.term;
+      
+      // Find and click the "next card" button
+      const nextBtn = Array.from(document.querySelectorAll('button')).find(b => 
+        (b.getAttribute('aria-label') || '').toLowerCase().includes('next card')
+      );
+      if (nextBtn) nextBtn.click();
+      
+      await new Promise(r => setTimeout(r, 50));
+    }
+    
+    // Click "Restart Flashcards" button to exit
+    const restartBtn = Array.from(document.querySelectorAll('button')).find(b => 
+      b.textContent.toLowerCase().includes('restart') || 
+      (b.getAttribute('aria-label') || '').toLowerCase().includes('restart')
+    );
+    if (restartBtn) restartBtn.click();
+    
+    showButton();
+  }
+  
+  await collect();
+})();
