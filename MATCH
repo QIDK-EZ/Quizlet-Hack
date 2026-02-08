@@ -1,0 +1,137 @@
+T = 1.1;
+
+const qaPairs = [
+  [Q, A],
+  [Q, A],
+  [Q, A], 
+  [Q, A],
+  [Q, A],
+  [Q, A],
+  [Q, A],
+  [Q, A],
+  [Q, A],
+  [Q, A]
+]
+
+// Click Start game button
+const startBtn = Array.from(document.querySelectorAll('button')).find(b => 
+  b.innerText.toLowerCase().includes('start')
+);
+if (startBtn) startBtn.click();
+
+setTimeout(() => {
+  const allElements = Array.from(document.querySelectorAll('div, button'));
+  const cardElements = allElements.filter(el => {
+    const rect = el.getBoundingClientRect();
+    const text = (el.innerText || "").trim();
+    const style = window.getComputedStyle(el);
+    return rect.width > 100 && rect.width < 500 && 
+           rect.height > 100 && rect.height < 300 && 
+           text.length > 3 && 
+           rect.top > 80 &&
+           style.display !== 'none' &&
+           style.visibility !== 'hidden';
+  });
+
+  const uniqueCards = [];
+  cardElements.forEach(el => {
+    const alreadyExists = uniqueCards.some(existing => {
+      return existing.contains(el) || el.contains(existing) || 
+             (existing.innerText.trim() === el.innerText.trim() && 
+              Math.abs(existing.getBoundingClientRect().top - el.getBoundingClientRect().top) < 10);
+    });
+    if (!alreadyExists) {
+      uniqueCards.push(el);
+    }
+  });
+
+  const cards = uniqueCards.map((el, i) => {
+    const rect = el.getBoundingClientRect();
+    return {
+      text: (el.innerText || "").trim(),
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      matched: false
+    };
+  }).sort((a, b) => Math.floor(a.y / 200) - Math.floor(b.y / 200) || a.x - b.x).slice(0, 12);
+
+  const pairScores = [];
+  for (let i = 0; i < cards.length; i++) {
+    for (let j = i + 1; j < cards.length; j++) {
+      let bestScore = 0;
+      
+      qaPairs.forEach(([q, a]) => {
+        const t1 = cards[i].text.toLowerCase();
+        const t2 = cards[j].text.toLowerCase();
+        const qLow = q.toLowerCase();
+        const aLow = a.toLowerCase();
+        
+        let score = 0;
+        
+        if ((t1.includes(qLow) && t2.includes(aLow)) || (t2.includes(qLow) && t1.includes(aLow))) {
+          score = 100;
+        } else {
+          const qPrefix = qLow.substring(0, Math.min(15, qLow.length));
+          const aPrefix = aLow.substring(0, Math.min(20, aLow.length));
+          if ((t1.includes(qPrefix) && t2.includes(aPrefix)) || (t2.includes(qPrefix) && t1.includes(aPrefix))) {
+            score = 80;
+          } else {
+            const qWords = qLow.split(' ').slice(0, 3).join(' ');
+            const aWords = aLow.split(' ').slice(0, 4).join(' ');
+            if (qWords && aWords && ((t1.startsWith(qWords) && t2.startsWith(aWords)) || (t2.startsWith(qWords) && t1.startsWith(aWords)))) {
+              score = 60;
+            }
+          }
+        }
+        
+        if (score > bestScore) bestScore = score;
+      });
+      
+      if (bestScore >= 60) {
+        pairScores.push({i, j, score: bestScore});
+      }
+    }
+  }
+
+  pairScores.sort((a, b) => b.score - a.score);
+  
+  let scoreIdx = 0;
+
+  function clickNext() {
+    while (scoreIdx < pairScores.length) {
+      const {i, j, score} = pairScores[scoreIdx];
+      if (!cards[i].matched && !cards[j].matched) {
+        document.elementFromPoint(cards[i].x, cards[i].y)?.click();
+        setTimeout(() => {
+          document.elementFromPoint(cards[j].x, cards[j].y)?.click();
+          setTimeout(() => {
+            const el1 = document.elementFromPoint(cards[i].x, cards[i].y);
+            const el2 = document.elementFromPoint(cards[j].x, cards[j].y);
+            
+            const isMatched = !el1 || !el2 ||
+                             parseFloat(getComputedStyle(el1).opacity) < 0.1 || 
+                             parseFloat(getComputedStyle(el2).opacity) < 0.1 ||
+                             getComputedStyle(el1).visibility === 'hidden' ||
+                             getComputedStyle(el2).visibility === 'hidden' ||
+                             el1.offsetHeight === 0 || el2.offsetHeight === 0;
+            
+            cards[i].matched = cards[j].matched = true;
+            
+            scoreIdx++;
+            setTimeout(() => clickNext(), (T-0.31)*200);
+          }, 0);
+        }, 0);
+        return;
+      }
+      scoreIdx++;
+    }
+    
+    const unmatched = cards.filter(c => !c.matched);
+    if (unmatched.length === 2) {
+      document.elementFromPoint(unmatched[0].x, unmatched[0].y)?.click();
+      setTimeout(() => document.elementFromPoint(unmatched[1].x, unmatched[1].y)?.click(), 0);
+    }
+  }
+  
+  clickNext();
+}, 0);
